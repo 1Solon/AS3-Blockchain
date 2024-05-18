@@ -1,14 +1,7 @@
-FROM python:3.10
-
-# Install Java
-RUN apt update && apt install -y sudo && apt install default-jdk -y
+FROM python:3.12
 
 # Upgrade pip
 RUN pip install --upgrade pip
-
-# Install Jupyter Notebook
-RUN pip install jupyter
-RUN pip install ipykernel
 
 # Install production dependencies
 COPY requirements.txt /tmp/requirements.txt
