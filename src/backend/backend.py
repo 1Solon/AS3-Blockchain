@@ -1,8 +1,13 @@
+from flask import Flask, jsonify
 import socket
 import struct
 import time
 from datetime import datetime, timezone
 import hashlib
+import threading
+
+app = Flask(__name__)
+block_data = []
 
 def connect_to_node(ip, port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -220,12 +225,10 @@ def parse_block_message(payload):
 
     block_details['transactions'] = transactions
 
-    # Calculate the block hash for verification
     block_header = payload[0:80]
     block_hash = hashlib.sha256(hashlib.sha256(block_header).digest()).digest()[::-1]
     block_details['hash'] = block_hash.hex()
 
-    # Verify block hash matches the hash included in the block
     if block_details['hash'] != block_hash.hex():
         raise ValueError("Block hash does not match the expected hash")
 
@@ -233,6 +236,20 @@ def parse_block_message(payload):
 
 def display_block_info(block_details):
     timestamp = datetime.fromtimestamp(block_details['timestamp'], timezone.utc).strftime('%d %B %Y at %H:%M:%S')
+    block_info = {
+        'timestamp': timestamp,
+        'nonce': block_details['nonce'],
+        'difficulty': block_details['bits'],
+        'hash': block_details['hash'],
+        'transactions': [
+            {
+                'version': tx['version'],
+                'outputs': [{'value': out[0] / 100_000_000} for out in tx['outputs']]
+            }
+            for tx in block_details['transactions']
+        ]
+    }
+    block_data.append(block_info)
     print(f"Block mined on {timestamp}")
     print(f"Nonce: {block_details['nonce']}")
     print(f"Difficulty: {block_details['bits']}")
@@ -242,7 +259,7 @@ def display_block_info(block_details):
         print(f"  Transaction Version: {tx['version']}")
         print("  Outputs:")
         for idx, out in enumerate(tx['outputs']):
-            btc_value = out[0] / 100_000_000  # Convert satoshis to BTC
+            btc_value = out[0] / 100_000_000
             print(f"    {idx + 1}. Output Value: {btc_value:.8f} BTC")
 
 def handle_addr_message(payload):
@@ -270,9 +287,9 @@ def handle_message(sock, command, payload):
     elif command == b'inv':
         items = parse_inv_message(payload)
         for item_type, item_hash in items:
-            if item_type == 2:  # MSG_BLOCK
+            if item_type == 2:
                 send_getdata_message(sock, item_type, item_hash)
-                time.sleep(1)  # Delay to avoid overwhelming the node
+                time.sleep(1)
     elif command == b'block':
         block_details = parse_block_message(payload)
         display_block_info(block_details)
@@ -290,7 +307,7 @@ def handle_message(sock, command, payload):
     else:
         print(f"Unhandled message type: {command}")
 
-def main():
+def run_node_listener():
     node_ip = 'seed.bitcoin.sipa.be'
     node_port = 8333
     try:
@@ -312,9 +329,13 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
         sock.close()
-        # Optionally, try another node
-        # node_ip = 'seed.bitcoin.jonasschnelli.ch'
-        # main()
+
+@app.route('/blocks', methods=['GET'])
+def get_blocks():
+    return jsonify(block_data)
 
 if __name__ == "__main__":
-    main()
+    # Start the node listener in a separate thread
+    threading.Thread(target=run_node_listener, daemon=True).start()
+    # Start the Flask app
+    app.run(port=5000)
