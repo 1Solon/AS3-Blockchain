@@ -99,7 +99,8 @@ def receive_message(sock):
                 print("No message received (header)")
                 return None
             header += part
-        
+            print(f"Received {len(header)} bytes of header")
+
         magic, command, length, checksum = struct.unpack('<I12sI4s', header)
         command = command.strip(b'\x00').decode('utf-8', errors='ignore')
         
@@ -111,6 +112,7 @@ def receive_message(sock):
                 print("No message received (payload)")
                 return None
             payload += part
+            print(f"Received {len(payload)} bytes of payload")
         
         print(f"Raw message received: {header.hex()}{payload.hex()}")
         actual_checksum = double_sha256(payload)[:4]
