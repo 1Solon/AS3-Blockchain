@@ -264,7 +264,7 @@ def parse_block(payload):
     if len(payload) < 80:
         print("Block payload too short:", len(payload))
         return None
-    block_header = struct.unpack('<I32s32sIIIQQ', payload[:80])
+    block_header = struct.unpack('<I32s32sIIIQ', payload[:80])
     version, prev_block, merkle_root, timestamp, bits, nonce, txn_count = block_header
     print("Parsed block header:")
     print(f"  Version: {version}")
