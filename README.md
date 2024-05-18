@@ -1,18 +1,39 @@
-# Python dev environment
+# Secure Systems Development - AS3-Blockchain
 
-This is a simple python dev environment using docker.
+This project is a simple implementation of a blockchain system, developed as part of the Secure Systems Development course.
 
-## Requirements
+## Project Structure
 
-- [Docker](https://www.docker.com/)
-- [Visual Studio Code](https://code.visualstudio.com/)
+The project is divided into two main parts:
 
-## How to use
+1. `backend`: This is where the blockchain logic resides. It's a Python application that handles block parsing, message handling, and node connections. It uses flask handling HTTP requests.
 
-If you open this in visual studio code, it should give you a prompt to open the folder in a container. If not, you can open the command palette and search for `Remote-Containers: Open Folder in Container...` and select the folder.
+2. `frontend`: This is the user interface for the blockchain. It's a TypeScript application that uses Vite for building and serving the application. It also uses Tailwind CSS for styling.
 
-## How to add packages
+## Running the application
 
-You can add packages to the `requirements.txt` file and then either run `pip install -r requirements.txt` in the terminal inside the container, or restart the container. This will install the packages in the container.
+If you have `docker` installed, you can run the application using the following commands:
 
-Note: `requirements` and `requirements-dev` are separated so that you can install packages that are only needed for development in the dev container. This is useful for things like linters and formatters.
+```sh
+docker-compose up
+```
+
+This will start the backend and frontend applications, and you can access the frontend at `http://localhost:5173`.
+
+### Backend
+
+To start the backend, navigate to the `src/backend` directory and run:
+
+```sh
+docker build -t backend .
+docker run -p 5000:5000 backend
+````
+
+Frontend
+To start the frontend, navigate to the src/frontend directory and run:
+
+```sh
+docker build -t frontend .
+docker run -p 3000:3000 frontend
+````
+
