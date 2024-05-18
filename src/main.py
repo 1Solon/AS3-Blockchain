@@ -136,6 +136,63 @@ def send_pong_message(sock, nonce):
     sock.sendall(message)
     print("Sent pong message")
 
+def parse_transaction(payload, offset):
+    tx_version = struct.unpack('<I', payload[offset:offset+4])[0]
+    offset += 4
+
+    # Assuming segwit is not used, read the number of inputs
+    num_inputs, varint_size = read_varint(payload, offset)
+    offset += varint_size
+
+    inputs = []
+    for _ in range(num_inputs):
+        txid = payload[offset:offset+32]
+        offset += 32
+        vout = struct.unpack('<I', payload[offset:offset+4])[0]
+        offset += 4
+        script_len, varint_size = read_varint(payload, offset)
+        offset += varint_size
+        script_sig = payload[offset:offset+script_len]
+        offset += script_len
+        sequence = struct.unpack('<I', payload[offset:offset+4])[0]
+        offset += 4
+        inputs.append((txid, vout, script_sig, sequence))
+
+    # Read the number of outputs
+    num_outputs, varint_size = read_varint(payload, offset)
+    offset += varint_size
+
+    outputs = []
+    for _ in range(num_outputs):
+        value = struct.unpack('<Q', payload[offset:offset+8])[0]
+        offset += 8
+        script_len, varint_size = read_varint(payload, offset)
+        offset += varint_size
+        script_pubkey = payload[offset:offset+script_len]
+        offset += script_len
+        outputs.append((value, script_pubkey))
+
+    locktime = struct.unpack('<I', payload[offset:offset+4])[0]
+    offset += 4
+
+    return {
+        'version': tx_version,
+        'inputs': inputs,
+        'outputs': outputs,
+        'locktime': locktime
+    }, offset
+
+def read_varint(data, offset):
+    value = data[offset]
+    if value < 0xfd:
+        return value, 1
+    elif value == 0xfd:
+        return struct.unpack('<H', data[offset+1:offset+3])[0], 3
+    elif value == 0xfe:
+        return struct.unpack('<I', data[offset+1:offset+5])[0], 5
+    else:
+        return struct.unpack('<Q', data[offset+1:offset+9])[0], 9
+
 def parse_block_message(payload):
     block_details = {}
     block_details['version'] = struct.unpack('<I', payload[0:4])[0]
@@ -144,13 +201,36 @@ def parse_block_message(payload):
     block_details['timestamp'] = struct.unpack('<I', payload[68:72])[0]
     block_details['bits'] = struct.unpack('<I', payload[72:76])[0]
     block_details['nonce'] = struct.unpack('<I', payload[76:80])[0]
+
+    offset = 80
+    tx_count, varint_size = read_varint(payload, offset)
+    offset += varint_size
+
+    transactions = []
+    for _ in range(tx_count):
+        tx, offset = parse_transaction(payload, offset)
+        transactions.append(tx)
+
+    block_details['transactions'] = transactions
+
+    # Calculate the block hash for verification
+    block_header = payload[0:80]
+    block_hash = hashlib.sha256(hashlib.sha256(block_header).digest()).digest()[::-1]
+    block_details['hash'] = block_hash.hex()
+
     return block_details
 
 def display_block_info(block_details):
-    timestamp = datetime.fromtimestamp(block_details['timestamp'], timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    timestamp = datetime.fromtimestamp(block_details['timestamp'], timezone.utc).strftime('%d %B %Y at %H:%M:%S')
     print(f"Block added on {timestamp}")
     print(f"Nonce: {block_details['nonce']}")
     print(f"Difficulty: {block_details['bits']}")
+    print(f"Block Hash: {block_details['hash']}")
+    print("Transactions:")
+    for tx in block_details['transactions']:
+        print(f"  Transaction Version: {tx['version']}")
+        for out in tx['outputs']:
+            print(f"    Output Value: {out[0]}")
 
 def handle_addr_message(payload):
     count = struct.unpack('<B', payload[0:1])[0]
