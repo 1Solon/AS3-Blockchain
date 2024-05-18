@@ -269,38 +269,6 @@ def display_block_info(block_details):
             btc_value = out[0] / 100_000_000  # Convert satoshis to BTC
             print(f"    {idx + 1}. Output Value: {btc_value:.8f} BTC")
 
-# Sample usage of the display_block_info function with dummy data
-block_details_sample = {
-    'timestamp': 1654887112,
-    'nonce': 2741481111,
-    'bits': 387096692,
-    'hash': '0000000000000000000a1b2c3d4e5f67890123456789abcdefabcdefabcdef',
-    'transactions': [
-        {
-            'version': 2,
-            'outputs': [
-                (324181955, b'script1'),
-                (324181955, b'script2'),
-                (324181955, b'script3'),
-                (2419809114, b'script4'),
-                (30149580, b'script5'),
-                (6311278825, b'script6')
-            ]
-        },
-        {
-            'version': 1,
-            'outputs': [
-                (594541, b'script1'),
-                (75954, b'script2'),
-                (2200000, b'script3')
-            ]
-        }
-    ]
-}
-
-display_block_info(block_details_sample)
-
-
 def handle_addr_message(payload):
     count = struct.unpack('<B', payload[0:1])[0]
     offset = 1
@@ -357,7 +325,7 @@ def main():
         
         while True:
             command, payload = receive_message(sock)
-            print(f"Received message: { }")
+            print(f"Received message: {command}")
             handle_message(sock, command, payload)
             
             current_time = time.time()
