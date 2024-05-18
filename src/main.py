@@ -74,6 +74,17 @@ def send_getdata_message(sock, inv_type, inv_hash):
     sock.sendall(message)
     print("Getdata message sent for block")
 
+def send_sendcmpct_message(sock, announce, version):
+    magic = 0xD9B4BEF9
+    command = 'sendcmpct'.ljust(12, '\x00').encode('utf-8')
+    length = 9
+    payload = struct.pack('<BQ', announce, version)
+    checksum = double_sha256(payload)[:4]
+    
+    message = struct.pack('<I12sI4s', magic, command, length, checksum) + payload
+    sock.sendall(message)
+    print(f"Sendcmpct message sent with announce: {announce}, version: {version}")
+
 def receive_message(sock):
     try:
         # Ensure the complete header is received
@@ -132,6 +143,8 @@ def handle_command(sock, command, payload):
         handle_block_message(payload)
     elif command == 'feefilter':
         handle_feefilter_message(payload)
+    elif command == 'sendcmpct':
+        handle_sendcmpct_message(payload)
     else:
         print(f"Command received: {command}")
 
@@ -155,6 +168,10 @@ def handle_feefilter_message(payload):
     feerate, = struct.unpack('<Q', payload)
     print(f"Feefilter set to: {feerate} satoshis per kilobyte")
 
+def handle_sendcmpct_message(payload):
+    announce, version = struct.unpack('<BQ', payload)
+    print(f"Sendcmpct received with announce: {announce}, version: {version}")
+
 def main():
     node_address = 'seed.bitcoin.sipa.be'  # Example DNS seed
     port = 8333
@@ -164,6 +181,9 @@ def main():
         return
     send_version_message(sock)
     handle_version_ack(sock)
+    
+    # Optionally send a sendcmpct message after the version handshake
+    send_sendcmpct_message(sock, announce=1, version=1)
     
     while True:
         result = receive_message(sock)
