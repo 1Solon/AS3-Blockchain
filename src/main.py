@@ -1,341 +1,213 @@
 import socket
 import struct
-import hashlib
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+import hashlib
 
-def double_sha256(data):
-    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+def connect_to_node(ip, port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((ip, port))
+    print("Connected to node")
+    return s
 
-def format_time(timestamp):
-    return datetime.utcfromtimestamp(timestamp).strftime('%d %B %Y at %H:%M')
-
-def varint_decode(data):
-    value = data[0]
-    if value < 0xfd:
-        return value, 1
-    elif value == 0xfd:
-        return struct.unpack('<H', data[1:3])[0], 3
-    elif value == 0xfe:
-        return struct.unpack('<I', data[1:5])[0], 5
-    else:
-        return struct.unpack('<Q', data[1:9])[0], 9
-
-def parse_transaction(data):
-    tx = {}
-    offset = 0
-
-    # Version
-    tx['version'], = struct.unpack('<I', data[offset:offset+4])
-    offset += 4
-
-    # Input count
-    tx['vin_count'], vin_size = varint_decode(data[offset:])
-    offset += vin_size
-
-    # Inputs
-    tx['vin'] = []
-    for _ in range(tx['vin_count']):
-        input_tx = {}
-
-        input_tx['prev_txid'] = data[offset:offset+32][::-1].hex()  # Reverse byte order
-        offset += 32
-
-        input_tx['prev_vout'], = struct.unpack('<I', data[offset:offset+4])
-        offset += 4
-
-        script_length, script_size = varint_decode(data[offset:])
-        offset += script_size
-
-        input_tx['scriptSig'] = data[offset:offset+script_length].hex()
-        offset += script_length
-
-        input_tx['sequence'], = struct.unpack('<I', data[offset:offset+4])
-        offset += 4
-
-        tx['vin'].append(input_tx)
-
-    # Output count
-    tx['vout_count'], vout_size = varint_decode(data[offset:])
-    offset += vout_size
-
-    # Outputs
-    tx['vout'] = []
-    for _ in range(tx['vout_count']):
-        output_tx = {}
-
-        output_tx['value'], = struct.unpack('<Q', data[offset:offset+8])
-        offset += 8
-
-        script_length, script_size = varint_decode(data[offset:])
-        offset += script_size
-
-        output_tx['scriptPubKey'] = data[offset:offset+script_length].hex()
-        offset += script_length
-
-        tx['vout'].append(output_tx)
-
-    # Lock time
-    tx['locktime'], = struct.unpack('<I', data[offset:offset+4])
-    offset += 4
-
-    return tx, offset
-
-def connect_to_node(address, port):
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(10)  # Set a timeout for socket operations
-        sock.connect((address, port))
-        print(f"Connected to {address}:{port}")
-        return sock
-    except Exception as e:
-        print(f"Error connecting to node: {e}")
-        return None
+def recv_all(sock, num_bytes):
+    """Helper function to receive exactly num_bytes from the socket"""
+    data = b''
+    while len(data) < num_bytes:
+        packet = sock.recv(num_bytes - len(data))
+        if not packet:
+            raise ConnectionError("Connection closed by the peer")
+        data += packet
+    return data
 
 def send_version_message(sock):
     version = 70015
     services = 0
     timestamp = int(time.time())
-    addr_recv = struct.pack('<Q16sH', services, socket.inet_pton(socket.AF_INET, '127.0.0.1'), 8333)
-    addr_trans = struct.pack('<Q16sH', services, socket.inet_pton(socket.AF_INET, '127.0.0.1'), 8333)
+    addr_recv_services = 0
+    addr_recv_ip = "127.0.0.1"
+    addr_recv_port = 8333
+    addr_trans_services = 0
+    addr_trans_ip = "127.0.0.1"
+    addr_trans_port = 8333
     nonce = 0
-    user_agent_bytes = b''
-    user_agent_length = len(user_agent_bytes)
+    user_agent_bytes = b'\x00'
     start_height = 0
-    relay = 1
-    
-    payload = struct.pack('<iQq26s26sQBsBi', version, services, timestamp, 
-                          addr_recv, addr_trans, nonce, 
-                          user_agent_length, user_agent_bytes, 
-                          start_height, relay)
-    
+    relay = 0
+
+    payload = (
+        struct.pack("<i", version) +
+        struct.pack("<Q", services) +
+        struct.pack("<q", timestamp) +
+        struct.pack("<Q", addr_recv_services) +
+        socket.inet_pton(socket.AF_INET6, '::ffff:' + addr_recv_ip) +
+        struct.pack(">H", addr_recv_port) +
+        struct.pack("<Q", addr_trans_services) +
+        socket.inet_pton(socket.AF_INET6, '::ffff:' + addr_trans_ip) +
+        struct.pack(">H", addr_trans_port) +
+        struct.pack("<Q", nonce) +
+        user_agent_bytes +
+        struct.pack("<i", start_height) +
+        struct.pack("<?", relay)
+    )
+
     magic = 0xD9B4BEF9
-    command = 'version'.ljust(12, '\x00').encode('utf-8')
+    command = b'version'
     length = len(payload)
-    checksum = double_sha256(payload)[:4]
-    
-    message = struct.pack('<I12sI4s', magic, command, length, checksum) + payload
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+
+    message = (
+        struct.pack("<I", magic) +
+        command.ljust(12, b'\x00') +
+        struct.pack("<I", length) +
+        checksum +
+        payload
+    )
     sock.sendall(message)
-    print("Version message sent")
+    print("Sent version message")
 
 def send_verack_message(sock):
     magic = 0xD9B4BEF9
-    command = 'verack'.ljust(12, '\x00').encode('utf-8')
+    command = b'verack'
     length = 0
-    checksum = double_sha256(b'')[:4]
-    
-    message = struct.pack('<I12sI4s', magic, command, length, checksum)
+    checksum = b'\x5d\xf6\xe0\xe2'  # Fixed checksum for empty payload
+
+    message = (
+        struct.pack("<I", magic) +
+        command.ljust(12, b'\x00') +
+        struct.pack("<I", length) +
+        checksum
+    )
     sock.sendall(message)
-    print("Verack message sent")
+    print("Sent verack message")
+
+def receive_message(sock):
+    magic = recv_all(sock, 4)
+    if magic != b'\xf9\xbe\xb4\xd9':
+        raise ValueError("Magic number mismatch")
+    command = recv_all(sock, 12).strip(b'\x00')
+    length = struct.unpack('<I', recv_all(sock, 4))[0]
+    checksum = recv_all(sock, 4)
+    payload = recv_all(sock, length)
+    return command, payload
+
+def parse_inv_message(payload):
+    count = struct.unpack('<B', payload[0:1])[0]
+    items = []
+    offset = 1
+    for _ in range(count):
+        item_type = struct.unpack('<I', payload[offset:offset+4])[0]
+        item_hash = payload[offset+4:offset+36]
+        items.append((item_type, item_hash))
+        offset += 36
+    return items
+
+def send_getdata_message(sock, item_type, item_hash):
+    getdata_payload = struct.pack('<B', 1) + struct.pack('<I', item_type) + item_hash
+    magic = 0xD9B4BEF9
+    command = b'getdata'
+    length = len(getdata_payload)
+    checksum = hashlib.sha256(hashlib.sha256(getdata_payload).digest()).digest()[:4]
+
+    message = (
+        struct.pack("<I", magic) +
+        command.ljust(12, b'\x00') +
+        struct.pack("<I", length) +
+        checksum +
+        getdata_payload
+    )
+    sock.sendall(message)
+    print("Sent getdata message")
 
 def send_pong_message(sock, nonce):
     magic = 0xD9B4BEF9
-    command = 'pong'.ljust(12, '\x00').encode('utf-8')
-    length = 8
-    checksum = double_sha256(struct.pack('<Q', nonce))[:4]
-    
+    command = b'pong'
     payload = struct.pack('<Q', nonce)
-    message = struct.pack('<I12sI4s', magic, command, length, checksum) + payload
+    length = len(payload)
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+
+    message = (
+        struct.pack("<I", magic) +
+        command.ljust(12, b'\x00') +
+        struct.pack("<I", length) +
+        checksum +
+        payload
+    )
     sock.sendall(message)
-    print("Pong message sent")
+    print("Sent pong message")
 
-def send_getdata_message(sock, inv_type, inv_hash):
-    magic = 0xD9B4BEF9
-    command = 'getdata'.ljust(12, '\x00').encode('utf-8')
-    count = 1
-    payload = struct.pack('<B', count) + struct.pack('<I32s', inv_type, inv_hash)
-    checksum = double_sha256(payload)[:4]
-    
-    message = struct.pack('<I12sI4s', magic, command, len(payload), checksum) + payload
-    sock.sendall(message)
-    print(f"Getdata message sent for block with hash: {inv_hash.hex()}")
+def parse_block_message(payload):
+    block_details = {}
+    block_details['version'] = struct.unpack('<I', payload[0:4])[0]
+    block_details['prev_block'] = payload[4:36]
+    block_details['merkle_root'] = payload[36:68]
+    block_details['timestamp'] = struct.unpack('<I', payload[68:72])[0]
+    block_details['bits'] = struct.unpack('<I', payload[72:76])[0]
+    block_details['nonce'] = struct.unpack('<I', payload[76:80])[0]
+    return block_details
 
-def send_sendcmpct_message(sock, announce, version):
-    magic = 0xD9B4BEF9
-    command = 'sendcmpct'.ljust(12, '\x00').encode('utf-8')
-    length = 9
-    payload = struct.pack('<BQ', announce, version)
-    checksum = double_sha256(payload)[:4]
-    
-    message = struct.pack('<I12sI4s', magic, command, length, checksum) + payload
-    sock.sendall(message)
-    print(f"Sendcmpct message sent with announce: {announce}, version: {version}")
+def display_block_info(block_details):
+    timestamp = datetime.fromtimestamp(block_details['timestamp'], timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    print(f"Block added on {timestamp}")
+    print(f"Nonce: {block_details['nonce']}")
+    print(f"Difficulty: {block_details['bits']}")
 
-def receive_message(sock):
-    try:
-        # Ensure the complete header is received
-        header = b''
-        while len(header) < 24:
-            part = sock.recv(24 - len(header))
-            if not part:
-                print("No message received (header)")
-                return None
-            header += part
-            print(f"Received {len(header)} bytes of header")
+def handle_addr_message(payload):
+    count = struct.unpack('<B', payload[0:1])[0]
+    offset = 1
+    print(f"Received {count} addresses")
+    for _ in range(count):
+        timestamp = struct.unpack('<I', payload[offset:offset+4])[0]
+        services = struct.unpack('<Q', payload[offset+4:offset+12])[0]
+        ip = socket.inet_ntop(socket.AF_INET6, payload[offset+12:offset+28])
+        port = struct.unpack('>H', payload[offset+28:offset+30])[0]
+        print(f"Address: {ip}:{port}, services: {services}, timestamp: {datetime.utcfromtimestamp(timestamp)}")
+        offset += 30
 
-        magic, command, length, checksum = struct.unpack('<I12sI4s', header)
-        command = command.strip(b'\x00').decode('utf-8', errors='ignore')
-        
-        # Ensure the complete payload is received
-        payload = b''
-        while len(payload) < length:
-            part = sock.recv(length - len(payload))
-            if not part:
-                print("No message received (payload)")
-                return None
-            payload += part
-            print(f"Received {len(payload)} bytes of payload")
-        
-        print(f"Raw message received: {header.hex()}{payload.hex()}")
-        actual_checksum = double_sha256(payload)[:4]
-        if actual_checksum == checksum:
-            return command, payload
-        else:
-            print(f"Checksum verification failed. Expected: {checksum.hex()}, Actual: {actual_checksum.hex()}")
-            return None
-    except socket.timeout:
-        print("Socket timeout")
-        return None
-    except Exception as e:
-        print(f"Error receiving message: {e}")
-        return None
-
-def handle_version_ack(sock):
-    attempts = 0
-    while attempts < 5:
-        result = receive_message(sock)
-        if result:
-            command, payload = result
-            print(f"Command received: {command}")
-            if command == 'version':
-                send_verack_message(sock)
-            elif command == 'verack':
-                print('Connection established and acknowledged.')
-                # Send compact block support message after version handshake
-                send_sendcmpct_message(sock, announce=1, version=1)
-                return True
-        else:
-            print("No valid message received, retrying...")
-        attempts += 1
-        time.sleep(1)
-    return False
-
-def handle_command(sock, command, payload):
-    if command == 'ping':
+def handle_message(sock, command, payload):
+    if command == b'version':
+        send_verack_message(sock)
+    elif command == b'verack':
+        print("Handshake complete")
+    elif command == b'ping':
         nonce = struct.unpack('<Q', payload)[0]
         send_pong_message(sock, nonce)
-    elif command == 'inv':
-        handle_inv_message(sock, payload)
-    elif command == 'block':
-        handle_block_message(payload)
-    elif command == 'feefilter':
-        handle_feefilter_message(payload)
-    elif command == 'sendcmpct':
-        handle_sendcmpct_message(payload)
+    elif command == b'inv':
+        items = parse_inv_message(payload)
+        for item_type, item_hash in items:
+            if item_type == 2:  # MSG_BLOCK
+                send_getdata_message(sock, item_type, item_hash)
+                time.sleep(1)  # Delay to avoid overwhelming the node
+    elif command == b'block':
+        block_details = parse_block_message(payload)
+        display_block_info(block_details)
+    elif command == b'sendheaders':
+        print("Received sendheaders command")
+    elif command == b'sendcmpct':
+        print("Received sendcmpct command")
+    elif command == b'feefilter':
+        print("Received feefilter command")
+    elif command == b'addr':
+        handle_addr_message(payload)
+    elif command == b'notfound':
+        print("Received notfound command")
     else:
-        print(f"Command received: {command}")
-
-def handle_inv_message(sock, payload):
-    count, = struct.unpack('<B', payload[:1])
-    print(f"Inventory count: {count}")
-    offset = 1
-    for i in range(count):
-        inv_type, inv_hash = struct.unpack('<I32s', payload[offset:offset+36])
-        print(f"Inventory item {i+1}: Type: {inv_type}, Hash: {inv_hash.hex()}")
-        if inv_type == 2:  # If inventory type is block (2)
-            print(f"Requesting block with hash: {inv_hash.hex()}")
-            send_getdata_message(sock, inv_type, inv_hash)
-        offset += 36
-
-def handle_block_message(payload):
-    print("Block message received, length:", len(payload))
-    if len(payload) < 80:
-        print("Block payload too short, expected at least 80 bytes")
-        return
-    # Parse the block message here and display its contents
-    block = parse_block(payload)
-    if block:
-        display_block_details(block)
-    else:
-        print("Failed to parse block")
-
-def parse_block(payload):
-    # Parse block header
-    if len(payload) < 80:
-        print("Block payload too short:", len(payload))
-        return None
-    block_header = struct.unpack('<I32s32sIIIQ', payload[:80])
-    version, prev_block, merkle_root, timestamp, bits, nonce, txn_count = block_header
-    print("Parsed block header:")
-    print(f"  Version: {version}")
-    print(f"  Previous block: {prev_block.hex()}")
-    print(f"  Merkle root: {merkle_root.hex()}")
-    print(f"  Timestamp: {timestamp}")
-    print(f"  Bits: {bits}")
-    print(f"  Nonce: {nonce}")
-    print(f"  Transaction count: {txn_count}")
-    
-    # Verify the block hash
-    block_hash = double_sha256(payload[:80])
-    print(f"Block hash: {block_hash.hex()}")
-    
-    transactions = []
-    offset = 80
-    for _ in range(txn_count):
-        tx, tx_len = parse_transaction(payload[offset:])
-        transactions.append(tx)
-        offset += tx_len
-    
-    return {
-        'version': version,
-        'prev_block': prev_block.hex(),
-        'merkle_root': merkle_root.hex(),
-        'timestamp': timestamp,
-        'bits': bits,
-        'nonce': nonce,
-        'transactions': transactions,
-        'hash': block_hash.hex()
-    }
-
-def display_block_details(block):
-    if not block:
-        print("No block details to display")
-        return
-    print(f"Block mined on: {format_time(block['timestamp'])}")
-    print(f"Nonce: {block['nonce']}")
-    print(f"Difficulty: {block['bits']}")
-    print("Transactions:")
-    for tx in block['transactions']:
-        print(f"  - {tx}")
-    print(f"Block hash verification: {'Pass' if block['hash'] == block['hash'] else 'Fail'}")
-
-def handle_feefilter_message(payload):
-    feerate, = struct.unpack('<Q', payload)
-    print(f"Feefilter set to: {feerate} satoshis per kilobyte")
-
-def handle_sendcmpct_message(payload):
-    announce, version = struct.unpack('<BQ', payload)
-    print(f"Sendcmpct received with announce: {announce}, version: {version}")
+        print(f"Unhandled message type: {command}")
 
 def main():
-    node_address = 'seed.bitcoin.sipa.be'  # Example DNS seed
-    port = 8333
-    
-    sock = connect_to_node(node_address, port)
-    if not sock:
-        return
-    send_version_message(sock)
-    if not handle_version_ack(sock):
-        print("Failed to complete handshake with the node.")
-        return
-    
-    while True:
-        result = receive_message(sock)
-        if result:
-            command, payload = result
-            handle_command(sock, command, payload)
-        else:
-            print("No valid message received, retrying...")
+    node_ip = 'seed.bitcoin.sipa.be'
+    node_port = 8333
+    try:
+        sock = connect_to_node(node_ip, node_port)
+        send_version_message(sock)
+        
+        while True:
+            command, payload = receive_message(sock)
+            print(f"Received message: {command}")
+            handle_message(sock, command, payload)
+    except Exception as e:
+        print(f"Error: {e}")
+        sock.close()
 
 if __name__ == "__main__":
     main()
