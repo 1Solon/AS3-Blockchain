@@ -1,7 +1,7 @@
 import logging
+import threading
 from flask import Flask, jsonify
 from flask_cors import CORS
-import threading
 from node_connection import run_node_listener
 from data import block_data
 

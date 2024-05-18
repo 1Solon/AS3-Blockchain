@@ -24,6 +24,7 @@ def send_version_message(sock):
     start_height = 0
     relay = 0
 
+    # Construct the version message payload
     payload = (
         struct.pack("<i", version) +
         struct.pack("<Q", services) +
@@ -40,11 +41,13 @@ def send_version_message(sock):
         struct.pack("<?", relay)
     )
 
+    # Construct the version message
     magic = 0xD9B4BEF9
     command = b'version'
     length = len(payload)
     checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
 
+    # Send the version message
     message = (
         struct.pack("<I", magic) +
         command.ljust(12, b'\x00') +
@@ -63,6 +66,7 @@ def send_verack_message(sock):
     length = 0
     checksum = b'\x5d\xf6\xe0\xe2'
 
+    # Construct the verack message
     message = (
         struct.pack("<I", magic) +
         command.ljust(12, b'\x00') +
@@ -81,6 +85,7 @@ def send_pong_message(sock, nonce):
     length = len(payload)
     checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
 
+    # Construct the pong message
     message = (
         struct.pack("<I", magic) +
         command.ljust(12, b'\x00') +
@@ -101,6 +106,7 @@ def send_ping_message(sock):
     length = len(payload)
     checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
 
+    # Construct the ping message
     message = (
         struct.pack("<I", magic) +
         command.ljust(12, b'\x00') +
@@ -122,6 +128,7 @@ def send_sendcmpct_message(sock):
     length = len(payload)
     checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
 
+    # Construct the sendcmpct message
     message = (
         struct.pack("<I", magic) +
         command.ljust(12, b'\x00') +
@@ -147,6 +154,8 @@ def receive_message(sock):
 
 def handle_message(sock, command, payload):
     """Handle a message received from the connected node."""
+
+    # Handle different message types
     if command == b'version':
         send_verack_message(sock)
     elif command == b'verack':
@@ -190,6 +199,7 @@ def send_getdata_message(sock, item_type, item_hash):
     checksum = hashlib.sha256(hashlib.sha256(
         getdata_payload).digest()).digest()[:4]
 
+    # Construct the getdata message
     message = (
         struct.pack("<I", magic) +
         command.ljust(12, b'\x00') +
@@ -217,8 +227,12 @@ def parse_inv_message(payload):
 
 def handle_addr_message(payload):
     """Handle an addr message received from the connected node."""
+
+    # Parse the addresses
     count, varint_size = read_varint(payload, 0)
     offset = varint_size
+
+    # Display the addresses
     print(f"Received {count} addresses")
     for _ in range(count):
         timestamp = struct.unpack('<I', payload[offset:offset+4])[0]

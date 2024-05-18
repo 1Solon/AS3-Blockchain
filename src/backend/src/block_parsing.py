@@ -13,6 +13,7 @@ def parse_transaction(payload, offset):
     num_inputs, varint_size = read_varint(payload, offset)
     offset += varint_size
 
+    # Parse the inputs
     inputs = []
     for _ in range(num_inputs):
         txid = payload[offset:offset+32]
@@ -30,6 +31,7 @@ def parse_transaction(payload, offset):
     num_outputs, varint_size = read_varint(payload, offset)
     offset += varint_size
 
+    # Parse the outputs
     outputs = []
     for _ in range(num_outputs):
         value = struct.unpack('<Q', payload[offset:offset+8])[0]
@@ -65,6 +67,7 @@ def parse_block_message(payload):
     tx_count, varint_size = read_varint(payload, offset)
     offset += varint_size
 
+    # Parse the transactions
     transactions = []
     for _ in range(tx_count):
         tx, offset = parse_transaction(payload, offset)
@@ -72,11 +75,13 @@ def parse_block_message(payload):
 
     block_details['transactions'] = transactions
 
+    # Calculate the block hash
     block_header = payload[0:80]
     block_hash = hashlib.sha256(hashlib.sha256(
         block_header).digest()).digest()[::-1]
     block_details['hash'] = block_hash.hex()
 
+    # Check that the calculated hash matches the expected hash
     if block_details['hash'] != block_hash.hex():
         raise ValueError("Block hash does not match the expected hash")
 

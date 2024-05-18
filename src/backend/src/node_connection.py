@@ -13,6 +13,7 @@ def run_node_listener():
 
     while True:  # Loop to reconnect if the connection is lost
         try:
+            # Connect to the node, send the version message, and start the message handling loop
             sock = connect_to_node(node_ip, node_port)
             send_version_message(sock)
 
