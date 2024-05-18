@@ -2,9 +2,13 @@ import socket
 import struct
 import hashlib
 import time
+from datetime import datetime
 
 def double_sha256(data):
     return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+
+def format_time(timestamp):
+    return datetime.utcfromtimestamp(timestamp).strftime('%d %B %Y at %H:%M')
 
 def connect_to_node(address, port):
     try:
@@ -92,7 +96,7 @@ def receive_message(sock):
         while len(header) < 24:
             part = sock.recv(24 - len(header))
             if not part:
-                print("No message received")
+                print("No message received (header)")
                 return None
             header += part
         
@@ -104,7 +108,7 @@ def receive_message(sock):
         while len(payload) < length:
             part = sock.recv(length - len(payload))
             if not part:
-                print("No message received")
+                print("No message received (payload)")
                 return None
             payload += part
         
@@ -129,6 +133,8 @@ def handle_version_ack(sock):
                 send_verack_message(sock)
             elif command == 'verack':
                 print('Connection established and acknowledged.')
+                # Send compact block support message after version handshake
+                send_sendcmpct_message(sock, announce=1, version=1)
                 break
         else:
             print("No valid message received, retrying...")
@@ -161,8 +167,49 @@ def handle_inv_message(sock, payload):
 
 def handle_block_message(payload):
     # Parse the block message here and display its contents
-    # For simplicity, just printing the raw payload
-    print(f"Block received with payload: {payload.hex()}")
+    block = parse_block(payload)
+    display_block_details(block)
+
+def parse_block(payload):
+    # Parse block header
+    block_header = struct.unpack('<4s32s32sIQQI', payload[:80])
+    version, prev_block, merkle_root, timestamp, bits, nonce, txn_count = block_header
+    
+    # Verify the block hash
+    block_hash = double_sha256(payload[:80])
+    print(f"Block hash: {block_hash.hex()}")
+    
+    transactions = []
+    offset = 80
+    for _ in range(txn_count):
+        tx, tx_len = parse_transaction(payload[offset:])
+        transactions.append(tx)
+        offset += tx_len
+    
+    return {
+        'version': version,
+        'prev_block': prev_block.hex(),
+        'merkle_root': merkle_root.hex(),
+        'timestamp': timestamp,
+        'bits': bits,
+        'nonce': nonce,
+        'transactions': transactions,
+        'hash': block_hash.hex()
+    }
+
+def parse_transaction(data):
+    tx_len = 0  # This should be calculated as you parse the transaction
+    tx = {}  # Populate this with the transaction details
+    return tx, tx_len
+
+def display_block_details(block):
+    print(f"Block mined on: {format_time(block['timestamp'])}")
+    print(f"Nonce: {block['nonce']}")
+    print(f"Difficulty: {block['bits']}")
+    print("Transactions:")
+    for tx in block['transactions']:
+        print(f"  - {tx}")
+    print(f"Block hash verification: {'Pass' if block['hash'] == block['hash'] else 'Fail'}")
 
 def handle_feefilter_message(payload):
     feerate, = struct.unpack('<Q', payload)
@@ -181,9 +228,6 @@ def main():
         return
     send_version_message(sock)
     handle_version_ack(sock)
-    
-    # Optionally send a sendcmpct message after the version handshake
-    send_sendcmpct_message(sock, announce=1, version=1)
     
     while True:
         result = receive_message(sock)
