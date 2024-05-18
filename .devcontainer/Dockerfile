@@ -5,7 +5,12 @@ LABEL Description="Build environment"
 RUN pip install --upgrade pip
 
 # Install zsh
-RUN apt-get update && apt-get install -y zsh && rm -rf /var/lib/apt/lists/*
+RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v1.2.0/zsh-in-docker.sh)" -- \
+    -t refined \
+    -p git \
+    -p 'history-substring-search' \
+    -p https://github.com/zsh-users/zsh-autosuggestions \
+    -p https://github.com/zsh-users/zsh-completions
 
 # Make zsh the default shell
 RUN chsh -s $(which zsh)
