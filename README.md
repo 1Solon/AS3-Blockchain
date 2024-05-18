@@ -1,7 +1,19 @@
+<div align="center">
+
 # Secure Systems Development - AS3-Blockchain
 
-This project is a simple blockchain viewer for the `seed.bitcoin.sipa.be` seed, when a new block is added, the application will display the bew block on the frontend.
+_Assignment to build a bitcoin block viewer_
 
+</div>
+
+<div align="center">
+
+![GitHub Repo stars](https://img.shields.io/github/stars/1Solon/AS2-AES-Encryption?style=for-the-badge)
+![GitHub forks](https://img.shields.io/github/forks/1Solon/AS2-AES-Encryption?style=for-the-badge)
+
+</div>
+
+This project is a simple blockchain viewer for the `seed.bitcoin.sipa.be` seed, when a new block is added, the application will display the bew block on the frontend.
 
 ## Project Structure
 
