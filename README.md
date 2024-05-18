@@ -13,7 +13,7 @@ The project is divided into two main parts:
 
 ## Example of the application running
 
-<img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaHZqcWJobTV4ZmIwNncxemUyYmZ4MTUzOTFzZmFkOXRubDd4OXByNCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/nuEgC4PQAG3ueHDtkb/giphy.gif" width="250" height="250"/>
+<img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaHZqcWJobTV4ZmIwNncxemUyYmZ4MTUzOTFzZmFkOXRubDd4OXByNCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/nuEgC4PQAG3ueHDtkb/giphy.gif" width="500" height="480"/>
 
 ## Running the application
 
