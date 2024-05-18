@@ -77,7 +77,7 @@ def send_getdata_message(sock, inv_type, inv_hash):
     
     message = struct.pack('<I12sI4s', magic, command, length, checksum) + payload
     sock.sendall(message)
-    print("Getdata message sent for block")
+    print(f"Getdata message sent for block with hash: {inv_hash.hex()}")
 
 def send_sendcmpct_message(sock, announce, version):
     magic = 0xD9B4BEF9
@@ -183,14 +183,17 @@ def handle_block_message(payload):
         return
     # Parse the block message here and display its contents
     block = parse_block(payload)
-    display_block_details(block)
+    if block:
+        display_block_details(block)
+    else:
+        print("Failed to parse block")
 
 def parse_block(payload):
     # Parse block header
     if len(payload) < 80:
         print("Block payload too short:", len(payload))
         return None
-    block_header = struct.unpack('<4s32s32sIQQI', payload[:80])
+    block_header = struct.unpack('<I32s32sIIIQQ', payload[:80])
     version, prev_block, merkle_root, timestamp, bits, nonce, txn_count = block_header
     print("Parsed block header:")
     print(f"  Version: {version}")
@@ -226,6 +229,7 @@ def parse_block(payload):
 def parse_transaction(data):
     tx_len = 0  # This should be calculated as you parse the transaction
     tx = {}  # Populate this with the transaction details
+    # Placeholder logic to parse a transaction
     return tx, tx_len
 
 def display_block_details(block):
