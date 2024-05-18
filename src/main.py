@@ -11,7 +11,6 @@ def connect_to_node(ip, port):
     return s
 
 def recv_all(sock, num_bytes):
-    """Helper function to receive exactly num_bytes from the socket"""
     data = b''
     while len(data) < num_bytes:
         packet = sock.recv(num_bytes - len(data))
@@ -70,7 +69,7 @@ def send_verack_message(sock):
     magic = 0xD9B4BEF9
     command = b'verack'
     length = 0
-    checksum = b'\x5d\xf6\xe0\xe2'  # Fixed checksum for empty payload
+    checksum = b'\x5d\xf6\xe0\xe2'
 
     message = (
         struct.pack("<I", magic) +
