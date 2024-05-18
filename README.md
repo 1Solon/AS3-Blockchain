@@ -17,6 +17,10 @@ _Assignment to build a bitcoin block viewer_
 
 This project is a simple blockchain viewer for the `seed.bitcoin.sipa.be` seed, when a new block is added, the application will display the bew block on the frontend.
 
+*Note, this project will only display blocks made AFTER it is started, as such, it may take some time for the first block to be displayed.*
+
+*Note2, it is not necessary to refresh the page, the application will automatically update when a new block is added.*
+
 ## Project Structure
 
 The project is divided into two main parts:
