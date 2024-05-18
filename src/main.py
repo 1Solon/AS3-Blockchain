@@ -119,8 +119,8 @@ def send_ping_message(sock):
 def send_sendcmpct_message(sock):
     magic = 0xD9B4BEF9
     command = b'sendcmpct'
-    version = 1
     compact = 0
+    version = 1
     payload = struct.pack('<B', compact) + struct.pack('<Q', version)
     length = len(payload)
     checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
@@ -287,6 +287,8 @@ def handle_message(sock, command, payload):
     elif command == b'ping':
         nonce = struct.unpack('<Q', payload)[0]
         send_pong_message(sock, nonce)
+    elif command == b'pong':
+        print("Received pong message")
     elif command == b'inv':
         items = parse_inv_message(payload)
         for item_type, item_hash in items:
