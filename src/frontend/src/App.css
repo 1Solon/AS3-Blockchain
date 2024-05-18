@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* You can add custom styles below if needed, for example: */
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.App-header {
+  @apply text-center mb-10;
+}
+
+.block {
+  @apply bg-white shadow-lg rounded-lg p-6 mb-6;
+}
+
+.transaction {
+  @apply bg-gray-100 p-4 rounded-lg mt-2;
+}
