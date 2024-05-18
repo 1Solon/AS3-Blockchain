@@ -1,6 +1,6 @@
 <div align="center">
 
-# Secure Systems Development - AS3-Blockchain
+# AS3-Blockchain
 
 _Assignment to build a bitcoin block viewer_
 
