@@ -126,7 +126,8 @@ def receive_message(sock):
         return None
 
 def handle_version_ack(sock):
-    while True:
+    attempts = 0
+    while attempts < 5:
         result = receive_message(sock)
         if result:
             command, payload = result
@@ -137,9 +138,12 @@ def handle_version_ack(sock):
                 print('Connection established and acknowledged.')
                 # Send compact block support message after version handshake
                 send_sendcmpct_message(sock, announce=1, version=1)
-                break
+                return True
         else:
             print("No valid message received, retrying...")
+        attempts += 1
+        time.sleep(1)
+    return False
 
 def handle_command(sock, command, payload):
     if command == 'ping':
@@ -164,18 +168,24 @@ def handle_inv_message(sock, payload):
         inv_type, inv_hash = struct.unpack('<I32s', payload[offset:offset+36])
         print(f"Inventory item {i+1}: Type: {inv_type}, Hash: {inv_hash.hex()}")
         if inv_type == 2:  # If inventory type is block (2)
+            print(f"Requesting block with hash: {inv_hash.hex()}")
             send_getdata_message(sock, inv_type, inv_hash)
         offset += 36
 
 def handle_block_message(payload):
+    print("Block message received, length:", len(payload))
     # Parse the block message here and display its contents
     block = parse_block(payload)
     display_block_details(block)
 
 def parse_block(payload):
     # Parse block header
+    if len(payload) < 80:
+        print("Block payload too short:", len(payload))
+        return None
     block_header = struct.unpack('<4s32s32sIQQI', payload[:80])
     version, prev_block, merkle_root, timestamp, bits, nonce, txn_count = block_header
+    print("Parsed block header")
     
     # Verify the block hash
     block_hash = double_sha256(payload[:80])
@@ -205,6 +215,9 @@ def parse_transaction(data):
     return tx, tx_len
 
 def display_block_details(block):
+    if not block:
+        print("No block details to display")
+        return
     print(f"Block mined on: {format_time(block['timestamp'])}")
     print(f"Nonce: {block['nonce']}")
     print(f"Difficulty: {block['bits']}")
@@ -229,7 +242,9 @@ def main():
     if not sock:
         return
     send_version_message(sock)
-    handle_version_ack(sock)
+    if not handle_version_ack(sock):
+        print("Failed to complete handshake with the node.")
+        return
     
     while True:
         result = receive_message(sock)
