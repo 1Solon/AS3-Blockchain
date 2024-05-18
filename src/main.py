@@ -174,6 +174,9 @@ def handle_inv_message(sock, payload):
 
 def handle_block_message(payload):
     print("Block message received, length:", len(payload))
+    if len(payload) < 80:
+        print("Block payload too short, expected at least 80 bytes")
+        return
     # Parse the block message here and display its contents
     block = parse_block(payload)
     display_block_details(block)
@@ -185,7 +188,14 @@ def parse_block(payload):
         return None
     block_header = struct.unpack('<4s32s32sIQQI', payload[:80])
     version, prev_block, merkle_root, timestamp, bits, nonce, txn_count = block_header
-    print("Parsed block header")
+    print("Parsed block header:")
+    print(f"  Version: {version}")
+    print(f"  Previous block: {prev_block.hex()}")
+    print(f"  Merkle root: {merkle_root.hex()}")
+    print(f"  Timestamp: {timestamp}")
+    print(f"  Bits: {bits}")
+    print(f"  Nonce: {nonce}")
+    print(f"  Transaction count: {txn_count}")
     
     # Verify the block hash
     block_hash = double_sha256(payload[:80])
