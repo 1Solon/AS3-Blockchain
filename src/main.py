@@ -10,6 +10,77 @@ def double_sha256(data):
 def format_time(timestamp):
     return datetime.utcfromtimestamp(timestamp).strftime('%d %B %Y at %H:%M')
 
+def varint_decode(data):
+    value = data[0]
+    if value < 0xfd:
+        return value, 1
+    elif value == 0xfd:
+        return struct.unpack('<H', data[1:3])[0], 3
+    elif value == 0xfe:
+        return struct.unpack('<I', data[1:5])[0], 5
+    else:
+        return struct.unpack('<Q', data[1:9])[0], 9
+
+def parse_transaction(data):
+    tx = {}
+    offset = 0
+
+    # Version
+    tx['version'], = struct.unpack('<I', data[offset:offset+4])
+    offset += 4
+
+    # Input count
+    tx['vin_count'], vin_size = varint_decode(data[offset:])
+    offset += vin_size
+
+    # Inputs
+    tx['vin'] = []
+    for _ in range(tx['vin_count']):
+        input_tx = {}
+
+        input_tx['prev_txid'] = data[offset:offset+32][::-1].hex()  # Reverse byte order
+        offset += 32
+
+        input_tx['prev_vout'], = struct.unpack('<I', data[offset:offset+4])
+        offset += 4
+
+        script_length, script_size = varint_decode(data[offset:])
+        offset += script_size
+
+        input_tx['scriptSig'] = data[offset:offset+script_length].hex()
+        offset += script_length
+
+        input_tx['sequence'], = struct.unpack('<I', data[offset:offset+4])
+        offset += 4
+
+        tx['vin'].append(input_tx)
+
+    # Output count
+    tx['vout_count'], vout_size = varint_decode(data[offset:])
+    offset += vout_size
+
+    # Outputs
+    tx['vout'] = []
+    for _ in range(tx['vout_count']):
+        output_tx = {}
+
+        output_tx['value'], = struct.unpack('<Q', data[offset:offset+8])
+        offset += 8
+
+        script_length, script_size = varint_decode(data[offset:])
+        offset += script_size
+
+        output_tx['scriptPubKey'] = data[offset:offset+script_length].hex()
+        offset += script_length
+
+        tx['vout'].append(output_tx)
+
+    # Lock time
+    tx['locktime'], = struct.unpack('<I', data[offset:offset+4])
+    offset += 4
+
+    return tx, offset
+
 def connect_to_node(address, port):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -225,12 +296,6 @@ def parse_block(payload):
         'transactions': transactions,
         'hash': block_hash.hex()
     }
-
-def parse_transaction(data):
-    tx_len = 0  # This should be calculated as you parse the transaction
-    tx = {}  # Populate this with the transaction details
-    # Placeholder logic to parse a transaction
-    return tx, tx_len
 
 def display_block_details(block):
     if not block:
