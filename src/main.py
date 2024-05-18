@@ -81,6 +81,60 @@ def send_verack_message(sock):
     sock.sendall(message)
     print("Sent verack message")
 
+def send_pong_message(sock, nonce):
+    magic = 0xD9B4BEF9
+    command = b'pong'
+    payload = struct.pack('<Q', nonce)
+    length = len(payload)
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+
+    message = (
+        struct.pack("<I", magic) +
+        command.ljust(12, b'\x00') +
+        struct.pack("<I", length) +
+        checksum +
+        payload
+    )
+    sock.sendall(message)
+    print("Sent pong message")
+
+def send_ping_message(sock):
+    nonce = int(time.time())
+    magic = 0xD9B4BEF9
+    command = b'ping'
+    payload = struct.pack('<Q', nonce)
+    length = len(payload)
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+
+    message = (
+        struct.pack("<I", magic) +
+        command.ljust(12, b'\x00') +
+        struct.pack("<I", length) +
+        checksum +
+        payload
+    )
+    sock.sendall(message)
+    print(f"Sent ping message with nonce {nonce}")
+
+def send_sendcmpct_message(sock):
+    magic = 0xD9B4BEF9
+    command = b'sendcmpct'
+    version = 1
+    compact = 0
+    payload = struct.pack('<B', compact) + struct.pack('<Q', version)
+    length = len(payload)
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+
+    message = (
+        struct.pack("<I", magic) +
+        command.ljust(12, b'\x00') +
+        struct.pack("<I", length) +
+        checksum +
+        payload
+    )
+    sock.sendall(message)
+    print("Sent sendcmpct message")
+
 def receive_message(sock):
     magic = recv_all(sock, 4)
     if magic != b'\xf9\xbe\xb4\xd9':
@@ -118,23 +172,6 @@ def send_getdata_message(sock, item_type, item_hash):
     )
     sock.sendall(message)
     print(f"Sent getdata message for item type {item_type} with hash {item_hash.hex()}")
-
-def send_pong_message(sock, nonce):
-    magic = 0xD9B4BEF9
-    command = b'pong'
-    payload = struct.pack('<Q', nonce)
-    length = len(payload)
-    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
-
-    message = (
-        struct.pack("<I", magic) +
-        command.ljust(12, b'\x00') +
-        struct.pack("<I", length) +
-        checksum +
-        payload
-    )
-    sock.sendall(message)
-    print("Sent pong message")
 
 def parse_transaction(payload, offset):
     tx_version = struct.unpack('<I', payload[offset:offset+4])[0]
@@ -262,7 +299,8 @@ def handle_message(sock, command, payload):
     elif command == b'sendheaders':
         print("Received sendheaders command")
     elif command == b'sendcmpct':
-        print("Received sendcmpct command")
+        send_sendcmpct_message(sock)
+        print("Received and responded to sendcmpct command")
     elif command == b'feefilter':
         print("Received feefilter command")
     elif command == b'addr':
@@ -279,10 +317,18 @@ def main():
         sock = connect_to_node(node_ip, node_port)
         send_version_message(sock)
         
+        last_ping_time = time.time()
+        
         while True:
             command, payload = receive_message(sock)
             print(f"Received message: {command}")
             handle_message(sock, command, payload)
+            
+            current_time = time.time()
+            if current_time - last_ping_time > 60:
+                send_ping_message(sock)
+                last_ping_time = current_time
+                
     except Exception as e:
         print(f"Error: {e}")
         sock.close()
