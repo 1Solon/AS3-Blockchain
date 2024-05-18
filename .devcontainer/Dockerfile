@@ -1,7 +1,14 @@
 FROM python:3.12
+LABEL Description="Build environment"
 
 # Upgrade pip
 RUN pip install --upgrade pip
+
+# Install zsh
+RUN apt-get update && apt-get install -y zsh && rm -rf /var/lib/apt/lists/*
+
+# Make zsh the default shell
+RUN chsh -s $(which zsh)
 
 # Install production dependencies
 COPY requirements.txt /tmp/requirements.txt
