@@ -7,7 +7,7 @@ import hashlib
 def connect_to_node(ip, port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, port))
-    print("Connected to node")
+    print(f"Connected to node {ip}:{port}")
     return s
 
 def recv_all(sock, num_bytes):
@@ -117,7 +117,7 @@ def send_getdata_message(sock, item_type, item_hash):
         getdata_payload
     )
     sock.sendall(message)
-    print("Sent getdata message")
+    print(f"Sent getdata message for item type {item_type} with hash {item_hash.hex()}")
 
 def send_pong_message(sock, nonce):
     magic = 0xD9B4BEF9
@@ -140,7 +140,6 @@ def parse_transaction(payload, offset):
     tx_version = struct.unpack('<I', payload[offset:offset+4])[0]
     offset += 4
 
-    # Assuming segwit is not used, read the number of inputs
     num_inputs, varint_size = read_varint(payload, offset)
     offset += varint_size
 
@@ -158,7 +157,6 @@ def parse_transaction(payload, offset):
         offset += 4
         inputs.append((txid, vout, script_sig, sequence))
 
-    # Read the number of outputs
     num_outputs, varint_size = read_varint(payload, offset)
     offset += varint_size
 
@@ -288,6 +286,9 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
         sock.close()
+        # Optionally, try another node
+        # node_ip = 'seed.bitcoin.jonasschnelli.ch'
+        # main()
 
 if __name__ == "__main__":
     main()
