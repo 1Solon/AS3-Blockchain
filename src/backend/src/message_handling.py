@@ -14,10 +14,10 @@ def send_version_message(sock):
     services = 0
     timestamp = int(time.time())
     addr_recv_services = 0
-    addr_recv_ip = "127.0.0.1"
+    addr_recv_ip = "0.0.0.0"
     addr_recv_port = 8333
     addr_trans_services = 0
-    addr_trans_ip = "127.0.0.1"
+    addr_trans_ip = "0.0.0.0"
     addr_trans_port = 8333
     nonce = 0
     user_agent_bytes = b'\x00'

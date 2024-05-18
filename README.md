@@ -1,6 +1,7 @@
 # Secure Systems Development - AS3-Blockchain
 
-This project is a simple implementation of a blockchain system, developed as part of the Secure Systems Development course.
+This project is a simple blockchain viewer for the `seed.bitcoin.sipa.be` seed, when a new block is added, the application will display the bew block on the frontend.
+
 
 ## Project Structure
 
@@ -10,8 +11,17 @@ The project is divided into two main parts:
 
 2. `frontend`: This is the user interface for the blockchain. It's a TypeScript application that uses Vite for building and serving the application. It also uses Tailwind CSS for styling.
 
+## Example of the application running
+
+
 ## Running the application
 
+For this application to function, both the front and backend applications need to be running. The backend application should be running, this can be accomplished either by:
+
+* running the application using docker-compose
+* running each application separately
+
+## Docker-Compose
 If you have `docker` installed, you can run the application using the following commands:
 
 ```sh
@@ -20,20 +30,21 @@ docker-compose up
 
 This will start the backend and frontend applications, and you can access the frontend at `http://localhost:5173`.
 
+## Running each application separately
+
 ### Backend
 
 To start the backend, navigate to the `src/backend` directory and run:
 
 ```sh
-docker build -t backend .
-docker run -p 5000:5000 backend
-````
+python src/app.py
+```
 
-Frontend
-To start the frontend, navigate to the src/frontend directory and run:
+### Frontend
+
+To start the frontend, navigate to the `src/frontend` directory and run:
 
 ```sh
-docker build -t frontend .
-docker run -p 3000:3000 frontend
-````
-
+npm install
+npm run dev
+```
