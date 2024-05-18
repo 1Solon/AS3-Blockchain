@@ -6,10 +6,14 @@ import time
 from datetime import datetime, timezone
 import hashlib
 import threading
+import logging
 
 app = Flask(__name__)
 CORS(app)
 block_data = []
+
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 def connect_to_node(ip, port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -152,9 +156,9 @@ def receive_message(sock):
     return command, payload
 
 def parse_inv_message(payload):
-    count = struct.unpack('<B', payload[0:1])[0]
+    count, varint_size = read_varint(payload, 0)
     items = []
-    offset = 1
+    offset = varint_size
     for _ in range(count):
         item_type = struct.unpack('<I', payload[offset:offset+4])[0]
         item_hash = payload[offset+4:offset+36]
@@ -292,8 +296,8 @@ def display_block_info(block_details):
             print(f"    {idx + 1}. Output Value: {btc_value:.8f} BTC")
 
 def handle_addr_message(payload):
-    count = struct.unpack('<B', payload[0:1])[0]
-    offset = 1
+    count, varint_size = read_varint(payload, 0)
+    offset = varint_size
     print(f"Received {count} addresses")
     for _ in range(count):
         timestamp = struct.unpack('<I', payload[offset:offset+4])[0]
@@ -339,25 +343,33 @@ def handle_message(sock, command, payload):
 def run_node_listener():
     node_ip = 'seed.bitcoin.sipa.be'
     node_port = 8333
-    try:
-        sock = connect_to_node(node_ip, node_port)
-        send_version_message(sock)
-        
-        last_ping_time = time.time()
-        
-        while True:
-            command, payload = receive_message(sock)
-            print(f"Received message: {command}")
-            handle_message(sock, command, payload)
+
+    while True:  # Loop to reconnect if the connection is lost
+        try:
+            sock = connect_to_node(node_ip, node_port)
+            send_version_message(sock)
             
-            current_time = time.time()
-            if current_time - last_ping_time > 60:
-                send_ping_message(sock)
-                last_ping_time = current_time
+            last_ping_time = time.time()
+            
+            while True:
+                command, payload = receive_message(sock)
+                print(f"Received message: {command}")
+                handle_message(sock, command, payload)
                 
-    except Exception as e:
-        print(f"Error: {e}")
-        sock.close()
+                current_time = time.time()
+                if current_time - last_ping_time > 60:
+                    send_ping_message(sock)
+                    last_ping_time = current_time
+
+        except ConnectionError:
+            print("Connection closed by the peer. Attempting to reconnect...")
+            time.sleep(5)  # Wait a bit before trying to reconnect
+
+        except Exception as e:
+            print(f"Error: {e}")
+            sock.close()
+            time.sleep(5)  # Wait a bit before trying to reconnect
+
 
 @app.route('/blocks', methods=['GET'])
 def get_blocks():
