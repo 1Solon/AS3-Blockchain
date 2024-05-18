@@ -13,7 +13,7 @@ The project is divided into two main parts:
 
 ## Example of the application running
 
-![](https://github.com/1Solon/AS3-Blockchain/blob/origin/examples/example2.gif)
+![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaHZqcWJobTV4ZmIwNncxemUyYmZ4MTUzOTFzZmFkOXRubDd4OXByNCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/nuEgC4PQAG3ueHDtkb/giphy.gif)
 
 ## Running the application
 
