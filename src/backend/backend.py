@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 import socket
 import struct
 import time
@@ -7,6 +8,7 @@ import hashlib
 import threading
 
 app = Flask(__name__)
+CORS(app)
 block_data = []
 
 def connect_to_node(ip, port):
@@ -177,22 +179,49 @@ def send_getdata_message(sock, item_type, item_hash):
     sock.sendall(message)
     print(f"Sent getdata message for item type {item_type} with hash {item_hash.hex()}")
 
-def send_getdata_message(sock, item_type, item_hash):
-    getdata_payload = struct.pack('<B', 1) + struct.pack('<I', item_type) + item_hash
-    magic = 0xD9B4BEF9
-    command = b'getdata'
-    length = len(getdata_payload)
-    checksum = hashlib.sha256(hashlib.sha256(getdata_payload).digest()).digest()[:4]
+def parse_transaction(payload, offset):
+    tx_version = struct.unpack('<I', payload[offset:offset+4])[0]
+    offset += 4
 
-    message = (
-        struct.pack("<I", magic) +
-        command.ljust(12, b'\x00') +
-        struct.pack("<I", length) +
-        checksum +
-        getdata_payload
-    )
-    sock.sendall(message)
-    print(f"Sent getdata message for item type {item_type} with hash {item_hash.hex()}")
+    num_inputs, varint_size = read_varint(payload, offset)
+    offset += varint_size
+
+    inputs = []
+    for _ in range(num_inputs):
+        txid = payload[offset:offset+32]
+        offset += 32
+        vout = struct.unpack('<I', payload[offset:offset+4])[0]
+        offset += 4
+        script_len, varint_size = read_varint(payload, offset)
+        offset += varint_size
+        script_sig = payload[offset:offset+script_len]
+        offset += script_len
+        sequence = struct.unpack('<I', payload[offset:offset+4])[0]
+        offset += 4
+        inputs.append((txid, vout, script_sig, sequence))
+
+    num_outputs, varint_size = read_varint(payload, offset)
+    offset += varint_size
+
+    outputs = []
+    for _ in range(num_outputs):
+        value = struct.unpack('<Q', payload[offset:offset+8])[0]
+        offset += 8
+        script_len, varint_size = read_varint(payload, offset)
+        offset += varint_size
+        script_pubkey = payload[offset:offset+script_len]
+        offset += script_len
+        outputs.append((value, script_pubkey))
+
+    locktime = struct.unpack('<I', payload[offset:offset+4])[0]
+    offset += 4
+
+    return {
+        'version': tx_version,
+        'inputs': inputs,
+        'outputs': outputs,
+        'locktime': locktime
+    }, offset
 
 def read_varint(data, offset):
     value = data[offset]
