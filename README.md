@@ -13,6 +13,7 @@ The project is divided into two main parts:
 
 ## Example of the application running
 
+![](https://github.com/1Solon/AS3-Blockchain/blob/origin/examples/example1.gif)
 
 ## Running the application
 
