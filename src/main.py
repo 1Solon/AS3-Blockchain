@@ -71,11 +71,11 @@ def send_pong_message(sock, nonce):
 def send_getdata_message(sock, inv_type, inv_hash):
     magic = 0xD9B4BEF9
     command = 'getdata'.ljust(12, '\x00').encode('utf-8')
-    length = 37
-    payload = struct.pack('<B', 1) + struct.pack('<I32s', inv_type, inv_hash)
+    count = 1
+    payload = struct.pack('<B', count) + struct.pack('<I32s', inv_type, inv_hash)
     checksum = double_sha256(payload)[:4]
     
-    message = struct.pack('<I12sI4s', magic, command, length, checksum) + payload
+    message = struct.pack('<I12sI4s', magic, command, len(payload), checksum) + payload
     sock.sendall(message)
     print(f"Getdata message sent for block with hash: {inv_hash.hex()}")
 
