@@ -13,6 +13,7 @@ def format_time(timestamp):
 def connect_to_node(address, port):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(10)  # Set a timeout for socket operations
         sock.connect((address, port))
         print(f"Connected to {address}:{port}")
         return sock
@@ -121,6 +122,9 @@ def receive_message(sock):
         else:
             print(f"Checksum verification failed. Expected: {checksum.hex()}, Actual: {actual_checksum.hex()}")
             return None
+    except socket.timeout:
+        print("Socket timeout")
+        return None
     except Exception as e:
         print(f"Error receiving message: {e}")
         return None
