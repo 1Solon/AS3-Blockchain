@@ -1,5 +1,6 @@
 import logging
 import threading
+import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 from node_connection import run_node_listener
@@ -23,5 +24,16 @@ def get_blocks():
 if __name__ == "__main__":
     # Start the node listener in a separate thread
     threading.Thread(target=run_node_listener, daemon=True).start()
+
+    # Determine the host based on the environment
+    if os.path.exists('/.dockerenv'):
+        # If running in a Docker container, set the host to '0.0.0.0'
+        host = '0.0.0.0'
+        print("Running in Docker container")
+    else:
+        # If running locally, set the host to '127.0.0.1'
+        host = '127.0.0.1'
+        print("Running locally")
+    
     # Start the Flask app
-    app.run(port=5000)
+    app.run(host=host, port=5000)
