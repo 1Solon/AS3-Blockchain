@@ -13,6 +13,8 @@ _Assignment to build a bitcoin block viewer_
 
 </div>
 
+## What is this?
+
 This project is a simple blockchain viewer for the `seed.bitcoin.sipa.be` seed, when a new block is added, the application will display the bew block on the frontend.
 
 ## Project Structure
