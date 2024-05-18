@@ -1,7 +1,9 @@
 import socket
 import struct
 
+
 def recv_all(sock, num_bytes):
+    """Receive num_bytes from the socket. Return the data."""
     data = b''
     while len(data) < num_bytes:
         packet = sock.recv(num_bytes - len(data))
@@ -10,7 +12,9 @@ def recv_all(sock, num_bytes):
         data += packet
     return data
 
+
 def read_varint(data, offset):
+    """Read a variable integer from the data at the given offset. Return the integer and the number of bytes read."""
     value = data[offset]
     if value < 0xfd:
         return value, 1
@@ -21,7 +25,9 @@ def read_varint(data, offset):
     else:
         return struct.unpack('<Q', data[offset+1:offset+9])[0], 9
 
+
 def connect_to_node(ip, port):
+    """Connect to the node at the given IP and port. Return the socket object."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, port))
     print(f"Connected to node {ip}:{port}")

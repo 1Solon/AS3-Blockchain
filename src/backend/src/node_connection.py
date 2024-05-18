@@ -5,7 +5,9 @@ from message_handling import (
 )
 from utils import connect_to_node
 
+
 def run_node_listener():
+    """Run the node listener."""
     node_ip = 'seed.bitcoin.sipa.be'
     node_port = 8333
 
@@ -13,14 +15,14 @@ def run_node_listener():
         try:
             sock = connect_to_node(node_ip, node_port)
             send_version_message(sock)
-            
+
             last_ping_time = time.time()
-            
+
             while True:
                 command, payload = receive_message(sock)
                 print(f"Received message: {command}")
                 handle_message(sock, command, payload)
-                
+
                 current_time = time.time()
                 if current_time - last_ping_time > 60:
                     send_ping_message(sock)

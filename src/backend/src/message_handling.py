@@ -7,7 +7,9 @@ from utils import recv_all, read_varint
 from block_parsing import parse_block_message, display_block_info
 from data import block_data
 
+
 def send_version_message(sock):
+    """Send a version message to the connected node."""
     version = 70015
     services = 0
     timestamp = int(time.time())
@@ -53,7 +55,9 @@ def send_version_message(sock):
     sock.sendall(message)
     print("Sent version message")
 
+
 def send_verack_message(sock):
+    """Send a verack message to the connected node."""
     magic = 0xD9B4BEF9
     command = b'verack'
     length = 0
@@ -68,7 +72,9 @@ def send_verack_message(sock):
     sock.sendall(message)
     print("Sent verack message")
 
+
 def send_pong_message(sock, nonce):
+    """Send a pong message to the connected node."""
     magic = 0xD9B4BEF9
     command = b'pong'
     payload = struct.pack('<Q', nonce)
@@ -85,7 +91,9 @@ def send_pong_message(sock, nonce):
     sock.sendall(message)
     print("Sent pong message")
 
+
 def send_ping_message(sock):
+    """Send a ping message to the connected node."""
     nonce = int(time.time())
     magic = 0xD9B4BEF9
     command = b'ping'
@@ -103,7 +111,9 @@ def send_ping_message(sock):
     sock.sendall(message)
     print(f"Sent ping message with nonce {nonce}")
 
+
 def send_sendcmpct_message(sock):
+    """Send a sendcmpct message to the connected node."""
     magic = 0xD9B4BEF9
     command = b'sendcmpct'
     compact = 0
@@ -122,7 +132,9 @@ def send_sendcmpct_message(sock):
     sock.sendall(message)
     print("Sent sendcmpct message")
 
+
 def receive_message(sock):
+    """Receive a message from the connected node."""
     magic = recv_all(sock, 4)
     if magic != b'\xf9\xbe\xb4\xd9':
         raise ValueError("Magic number mismatch")
@@ -132,7 +144,9 @@ def receive_message(sock):
     payload = recv_all(sock, length)
     return command, payload
 
+
 def handle_message(sock, command, payload):
+    """Handle a message received from the connected node."""
     if command == b'version':
         send_verack_message(sock)
     elif command == b'verack':
@@ -165,12 +179,16 @@ def handle_message(sock, command, payload):
     else:
         print(f"Unhandled message type: {command}")
 
+
 def send_getdata_message(sock, item_type, item_hash):
-    getdata_payload = struct.pack('<B', 1) + struct.pack('<I', item_type) + item_hash
+    """Send a getdata message to the connected node."""
+    getdata_payload = struct.pack(
+        '<B', 1) + struct.pack('<I', item_type) + item_hash
     magic = 0xD9B4BEF9
     command = b'getdata'
     length = len(getdata_payload)
-    checksum = hashlib.sha256(hashlib.sha256(getdata_payload).digest()).digest()[:4]
+    checksum = hashlib.sha256(hashlib.sha256(
+        getdata_payload).digest()).digest()[:4]
 
     message = (
         struct.pack("<I", magic) +
@@ -180,9 +198,12 @@ def send_getdata_message(sock, item_type, item_hash):
         getdata_payload
     )
     sock.sendall(message)
-    print(f"Sent getdata message for item type {item_type} with hash {item_hash.hex()}")
+    print(
+        f"Sent getdata message for item type {item_type} with hash {item_hash.hex()}")
+
 
 def parse_inv_message(payload):
+    """Parse an inv message received from the connected node."""
     count, varint_size = read_varint(payload, 0)
     items = []
     offset = varint_size
@@ -193,7 +214,9 @@ def parse_inv_message(payload):
         offset += 36
     return items
 
+
 def handle_addr_message(payload):
+    """Handle an addr message received from the connected node."""
     count, varint_size = read_varint(payload, 0)
     offset = varint_size
     print(f"Received {count} addresses")
@@ -202,5 +225,6 @@ def handle_addr_message(payload):
         services = struct.unpack('<Q', payload[offset+4:offset+12])[0]
         ip = socket.inet_ntop(socket.AF_INET6, payload[offset+12:offset+28])
         port = struct.unpack('>H', payload[offset+28:offset+30])[0]
-        print(f"Address: {ip}:{port}, services: {services}, timestamp: {datetime.utcfromtimestamp(timestamp)}")
+        print(
+            f"Address: {ip}:{port}, services: {services}, timestamp: {datetime.utcfromtimestamp(timestamp)}")
         offset += 30

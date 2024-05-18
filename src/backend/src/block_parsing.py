@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 from utils import read_varint
 from data import block_data
 
+
 def parse_transaction(payload, offset):
+    """Parse a transaction from the payload at the given offset. Return the transaction and the new offset."""
     tx_version = struct.unpack('<I', payload[offset:offset+4])[0]
     offset += 4
 
@@ -48,7 +50,9 @@ def parse_transaction(payload, offset):
         'locktime': locktime
     }, offset
 
+
 def parse_block_message(payload):
+    """Parse a block message from the payload. Return the block details."""
     block_details = {}
     block_details['version'] = struct.unpack('<I', payload[0:4])[0]
     block_details['prev_block'] = payload[4:36]
@@ -69,7 +73,8 @@ def parse_block_message(payload):
     block_details['transactions'] = transactions
 
     block_header = payload[0:80]
-    block_hash = hashlib.sha256(hashlib.sha256(block_header).digest()).digest()[::-1]
+    block_hash = hashlib.sha256(hashlib.sha256(
+        block_header).digest()).digest()[::-1]
     block_details['hash'] = block_hash.hex()
 
     if block_details['hash'] != block_hash.hex():
@@ -77,8 +82,11 @@ def parse_block_message(payload):
 
     return block_details
 
+
 def display_block_info(block_details):
-    timestamp = datetime.fromtimestamp(block_details['timestamp'], timezone.utc).strftime('%d %B %Y at %H:%M:%S')
+    """Display the block information. Add the block information to the block_data list."""
+    timestamp = datetime.fromtimestamp(
+        block_details['timestamp'], timezone.utc).strftime('%d %B %Y at %H:%M:%S')
     block_info = {
         'timestamp': timestamp,
         'nonce': block_details['nonce'],
