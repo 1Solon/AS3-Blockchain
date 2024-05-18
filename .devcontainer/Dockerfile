@@ -16,9 +16,12 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 RUN chsh -s $(which zsh)
 
 # Install production dependencies
-COPY requirements.txt /tmp/requirements.txt
+COPY src/backend/requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
 # Install development dependencies
-COPY requirements-dev.txt /tmp/requirements-dev.txt
+COPY src/backend/requirements-dev.txt /tmp/requirements-dev.txt
 RUN pip install -r /tmp/requirements-dev.txt && rm /tmp/requirements-dev.txt
+
+# Install npm
+RUN apt-get update && apt-get install -y npm
